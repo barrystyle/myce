@@ -45,8 +45,6 @@ static const int TIMEOUT_INTERVAL = 20 * 60;
 static const int FEELER_INTERVAL = 120;
 /** The maximum number of entries in an 'inv' protocol message */
 static const unsigned int MAX_INV_SZ = 50000;
-/** The maximum number of entries in a locator */
-static const unsigned int MAX_LOCATOR_SZ = 101;
 /** The maximum number of new addresses to accumulate before announcing. */
 static const unsigned int MAX_ADDR_TO_SEND = 1000;
 /** Maximum length of incoming protocol messages (no message over 4 MB is currently acceptable). */
@@ -175,10 +173,20 @@ public:
     void Interrupt();
     bool GetNetworkActive() const { return fNetworkActive; };
     void SetNetworkActive(bool active);
-    void OpenNetworkConnection(const CAddress& addrConnect, bool fCountFailure, CSemaphoreGrant *grantOutbound = nullptr, const char *strDest = nullptr, bool fOneShot = false, bool fFeeler = false, bool manual_connection = false);
+    void OpenNetworkConnection(const CAddress& addrConnect,
+                               bool fCountFailure,
+                               CSemaphoreGrant *grantOutbound = nullptr,
+                               const char *strDest = nullptr,
+                               bool fOneShot = false,
+                               bool fFeeler = false,
+                               bool manual_connection = false);
+
+    CNode *OpenMasternodeConnection(const CAddress &addrConnect);
+
     bool CheckIncomingNonce(uint64_t nonce);
 
     bool ForNode(NodeId id, std::function<bool(CNode* pnode)> func);
+    bool ForNode(CService addr, std::function<bool(CNode* pnode)> func);
 
     void PushMessage(CNode* pnode, CSerializedNetMsg&& msg);
 
@@ -313,12 +321,9 @@ public:
 
     void WakeMessageHandler();
 
-    /** Attempts to obfuscate tx time through exponentially distributed emitting.
-        Works assuming that a single interval is used.
-        Variable intervals will result in privacy decrease.
-    */
-    int64_t PoissonNextSendInbound(int64_t now, int average_interval_seconds);
-
+    std::vector<CNode*> CopyNodeVector();
+    void ReleaseNodeVector(const std::vector<CNode*>& vecNodes);
+    void RelayTransaction(const CTransaction& tx);
 private:
     struct ListenSocket {
         SOCKET socket;
@@ -326,7 +331,14 @@ private:
 
         ListenSocket(SOCKET socket_, bool whitelisted_) : socket(socket_), whitelisted(whitelisted_) {}
     };
-
+    CNode *OpenNetworkConnectionImpl(const CAddress& addrConnect,
+                                     bool fCountFailure,
+                                     CSemaphoreGrant *grantOutbound = nullptr,
+                                     const char *strDest = nullptr,
+                                     bool fOneShot = false,
+                                     bool fFeeler = false,
+                                     bool manual_connection = false,
+                                     bool fAllowLocal = false);
     bool BindListenPort(const CService &bindAddr, std::string& strError, bool fWhitelisted = false);
     bool Bind(const CService &addr, unsigned int flags);
     bool InitBinds(const std::vector<CService>& binds, const std::vector<CService>& whiteBinds);
@@ -347,7 +359,7 @@ private:
     CNode* FindNode(const CService& addr);
 
     bool AttemptToEvictConnection();
-    CNode* ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, bool manual_connection);
+    CNode* ConnectNode(CAddress addrConnect, const char *pszDest, bool fCountFailure, bool manual_connection, bool fAllowLocal);
     bool IsWhitelistedRange(const CNetAddr &addr);
 
     void DeleteNode(CNode* pnode);
@@ -443,8 +455,6 @@ private:
      *  This takes the place of a feeler connection */
     std::atomic_bool m_try_another_outbound_peer;
 
-    std::atomic<int64_t> m_next_send_inv_to_incoming{0};
-
     friend struct CConnmanTest;
 };
 extern std::unique_ptr<CConnman> g_connman;
@@ -477,7 +487,7 @@ class NetEventsInterface
 {
 public:
     virtual bool ProcessMessages(CNode* pnode, std::atomic<bool>& interrupt) = 0;
-    virtual bool SendMessages(CNode* pnode) = 0;
+    virtual bool SendMessages(CNode* pnode, std::atomic<bool>& interrupt) = 0;
     virtual void InitializeNode(CNode* pnode) = 0;
     virtual void FinalizeNode(NodeId id, bool& update_connection_time) = 0;
 
@@ -507,7 +517,7 @@ bool IsLimited(enum Network net);
 bool IsLimited(const CNetAddr& addr);
 bool AddLocal(const CService& addr, int nScore = LOCAL_NONE);
 bool AddLocal(const CNetAddr& addr, int nScore = LOCAL_NONE);
-void RemoveLocal(const CService& addr);
+bool RemoveLocal(const CService& addr);
 bool SeenLocal(const CService& addr);
 bool IsLocal(const CService& addr);
 bool GetLocal(CService &addr, const CNetAddr *paddrPeer = nullptr);
@@ -669,7 +679,10 @@ public:
     //    unless it loads a bloom filter.
     bool fRelayTxes; //protected by cs_filter
     bool fSentAddr;
+    // If 'true' this node will be disconnected on CMasternodeMan::ProcessMasternodeConnections()
+    bool fMasternode;
     CSemaphoreGrant grantOutbound;
+    CSemaphoreGrant grantMasternodeOutbound;
     CCriticalSection cs_filter;
     std::unique_ptr<CBloomFilter> pfilter;
     std::atomic<int> nRefCount;
@@ -696,6 +709,7 @@ public:
 
     // inventory based relay
     CRollingBloomFilter filterInventoryKnown;
+    std::vector<CInv> vInventoryToSend;
     // Set of transaction ids we still have to announce.
     // They are sorted by the mempool before relay, so the order is not important.
     std::set<uint256> setInventoryTxToSend;
@@ -845,6 +859,11 @@ public:
         } else if (inv.type == MSG_BLOCK) {
             vInventoryBlockToSend.push_back(inv.hash);
         }
+        else
+        {
+            LogPrint(BCLog::NET, "PushInventory --  inv: %s peer=%d\n", inv.ToString(), id);
+            vInventoryToSend.push_back(inv);
+        }
     }
 
     void PushBlockHash(const uint256 &hash)
@@ -874,6 +893,6 @@ public:
 
 
 /** Return a timestamp in the future (in microseconds) for exponentially distributed events. */
-int64_t PoissonNextSend(int64_t now, int average_interval_seconds);
+int64_t PoissonNextSend(int64_t nNow, int average_interval_seconds);
 
 #endif // BITCOIN_NET_H

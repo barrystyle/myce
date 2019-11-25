@@ -9,13 +9,34 @@
 #include <net.h>
 #include <validationinterface.h>
 #include <consensus/params.h>
+#include <chainparams.h>
 
 /** Default for -maxorphantx, maximum number of orphan transactions kept in memory */
 static const unsigned int DEFAULT_MAX_ORPHAN_TRANSACTIONS = 100;
+/** Expiration time for orphan transactions in seconds */
+static const int64_t ORPHAN_TX_EXPIRE_TIME = 20 * 60;
+/** Minimum time between orphan transactions expire time checks in seconds */
+static const int64_t ORPHAN_TX_EXPIRE_INTERVAL = 5 * 60;
 /** Default number of orphan+recently-replaced txn to keep around for block reconstruction */
 static const unsigned int DEFAULT_BLOCK_RECONSTRUCTION_EXTRA_TXN = 100;
 /** Default for BIP61 (sending reject messages) */
 static constexpr bool DEFAULT_ENABLE_BIP61 = true;
+/** Headers download timeout expressed in microseconds
+ *  Timeout = base + per_header * (expected number of headers) */
+static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_BASE = 15 * 60 * 1000000; // 15 minutes
+static constexpr int64_t HEADERS_DOWNLOAD_TIMEOUT_PER_HEADER = 1000; // 1ms/header
+/** Protect at least this many outbound peers from disconnection due to slow/
+ * behind headers chain.
+ */
+static constexpr int32_t MAX_OUTBOUND_PEERS_TO_PROTECT_FROM_DISCONNECT = 4;
+/** Timeout for (unprotected) outbound peers to sync to our chainwork, in seconds */
+static constexpr int64_t CHAIN_SYNC_TIMEOUT = 20 * 60; // 20 minutes
+/** How frequently to check for stale tips, in seconds */
+static constexpr int64_t STALE_CHECK_INTERVAL = 10 * 60; // 10 minutes
+/** How frequently to check for extra outbound peers and disconnect, in seconds */
+static constexpr int64_t EXTRA_PEER_CHECK_INTERVAL = 45;
+/** Minimum time an outbound-peer-eviction candidate must be connected for, in order to evict, in seconds */
+static constexpr int64_t MINIMUM_CONNECT_TIME = 30;
 
 class PeerLogicValidation final : public CValidationInterface, public NetEventsInterface {
 private:
@@ -58,7 +79,7 @@ public:
     * @param[in]   pto             The node which we are sending messages to.
     * @return                      True if there is more work to be done
     */
-    bool SendMessages(CNode* pto) override EXCLUSIVE_LOCKS_REQUIRED(pto->cs_sendProcessing);
+    bool SendMessages(CNode* pto, std::atomic<bool>& interrupt) override;
 
     /** Consider evicting an outbound peer based on the amount of time they've been behind our tip */
     void ConsiderEviction(CNode *pto, int64_t time_in_seconds);
@@ -83,5 +104,49 @@ struct CNodeStateStats {
 
 /** Get statistics from node state */
 bool GetNodeStateStats(NodeId nodeid, CNodeStateStats &stats);
+/** Increase a node's misbehavior score. */
+void Misbehaving(NodeId nodeid, int howmuch, const std::string& message="");
+
+class CNode;
+class CInv;
+class CConnman;
+class CNetMsgMaker;
+class CDataStream;
+
+namespace net_processing_bitcoin
+{
+	bool ProcessGetData(CNode* pfrom, const Consensus::Params& consensusParams, CConnman* connman,
+						const CInv &inv);
+
+	void ProcessExtension(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv, CConnman *connman);
+
+	bool AlreadyHave(const CInv &inv);
+
+	bool TransformInvForLegacyVersion(CInv &inv, CNode *pfrom, bool fForSending);
+
+	/** Run an instance of extension processor */
+	void ThreadProcessExtensions(CConnman *pConnman);
+}
+
+class CNode;
+class CInv;
+class CConnman;
+class CNetMsgMaker;
+class CDataStream;
+
+namespace net_processing_bitcoin
+{
+	bool ProcessGetData(CNode* pfrom, const Consensus::Params& consensusParams, CConnman* connman,
+						const CInv &inv);
+
+	void ProcessExtension(CNode* pfrom, const std::string &strCommand, CDataStream& vRecv, CConnman *connman);
+
+	bool AlreadyHave(const CInv &inv);
+
+	bool TransformInvForLegacyVersion(CInv &inv, CNode *pfrom, bool fForSending);
+
+	/** Run an instance of extension processor */
+	void ThreadProcessExtensions(CConnman *pConnman);
+}
 
 #endif // BITCOIN_NET_PROCESSING_H
