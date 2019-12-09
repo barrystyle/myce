@@ -4,7 +4,6 @@
 
 #include <activemasternode.h>
 #include <addrman.h>
-#include <governance/governance.h>
 #include <masternode-payments.h>
 #include <masternode-sync.h>
 #include <masternodeman.h>
@@ -95,7 +94,6 @@ CMasternodeMan::CMasternodeMan()
       listScheduledMnbRequestConnections(),
       fMasternodesAdded(false),
       fMasternodesRemoved(false),
-      vecDirtyGovernanceObjectHashes(),
       nLastWatchdogVoteTime(0),
       mapSeenMasternodeBroadcast(),
       mapSeenMasternodePing(),
@@ -223,7 +221,6 @@ void CMasternodeMan::CheckAndRemove(CConnman& connman)
                 mWeAskedForMasternodeListEntry.erase(it->first);
 
                 // and finally remove it from the list
-                it->second.FlagGovernanceItemsAsDirty();
                 mapMasternodes.erase(it++);
                 fMasternodesRemoved = true;
             } else {
@@ -1518,25 +1515,6 @@ bool CMasternodeMan::IsWatchdogActive()
     return (GetTime() - nLastWatchdogVoteTime) <= MASTERNODE_WATCHDOG_MAX_SECONDS;
 }
 
-bool CMasternodeMan::AddGovernanceVote(const COutPoint& outpoint, uint256 nGovernanceObjectHash)
-{
-    LOCK(cs);
-    CMasternode* pmn = Find(outpoint);
-    if(!pmn) {
-        return false;
-    }
-    pmn->AddGovernanceVote(nGovernanceObjectHash);
-    return true;
-}
-
-void CMasternodeMan::RemoveGovernanceObject(uint256 nGovernanceObjectHash)
-{
-    LOCK(cs);
-    for(auto& mnpair : mapMasternodes) {
-        mnpair.second.RemoveGovernanceObject(nGovernanceObjectHash);
-    }
-}
-
 void CMasternodeMan::CheckMasternode(const CPubKey& pubKeyMasternode, bool fForce)
 {
     LOCK2(cs_main, cs);
@@ -1600,14 +1578,6 @@ void CMasternodeMan::NotifyMasternodeUpdates(CConnman& connman)
         LOCK(cs);
         fMasternodesAddedLocal = fMasternodesAdded;
         fMasternodesRemovedLocal = fMasternodesRemoved;
-    }
-
-    if(fMasternodesAddedLocal) {
-        governance.CheckMasternodeOrphanObjects(connman);
-        governance.CheckMasternodeOrphanVotes(connman);
-    }
-    if(fMasternodesRemovedLocal) {
-        governance.UpdateCachesAndClean();
     }
 
     LOCK(cs);

@@ -31,7 +31,6 @@
 #include <wallet/fees.h>
 #include <kernel.h>
 #include <masternode-payments.h>
-#include <instantx.h>
 #include <wallet/walletutil.h>
 
 #include <algorithm>
@@ -2405,10 +2404,6 @@ void CWallet::AvailableCoins(std::vector<COutput> &vCoins, bool fOnlySafe, const
         if (nDepth == 0 && !pcoin->InMempool())
             continue;
 
-        // do not use IX for inputs that have less then INSTANTSEND_CONFIRMATIONS_REQUIRED blockchain confirmations
-        if (fUseInstantSend && nDepth < INSTANTSEND_CONFIRMATIONS_REQUIRED)
-            continue;
-
         bool safeTx = pcoin->IsTrusted();
 
         // We should not consider coins from transactions that are replacing
@@ -3434,8 +3429,6 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, CAm
         return false;
     }
 
-    // Update coinbase transaction with additional info about masternode and governance payments,
-    // get some info back to pass to getblocktemplate
     CTxOut txoutMasternode;
     std::vector<CTxOut> voutSuperblock;
     int nHeight = chainActive.Tip()->nHeight + 1;

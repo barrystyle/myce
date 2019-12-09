@@ -4,8 +4,6 @@
 
 #include <chainparams.h>
 #include <dsnotificationinterface.h>
-#include <instantx.h>
-#include <governance/governance.h>
 #include <masternodeman.h>
 #include <masternode-payments.h>
 #include <masternode-sync.h>
@@ -28,42 +26,21 @@ void CDSNotificationInterface::NotifyHeaderTip(const CBlockIndex *pindexNew, boo
 
 void CDSNotificationInterface::UpdatedBlockTip(const CBlockIndex *pindexNew, const CBlockIndex *pindexFork, bool fInitialDownload)
 {
-    if (pindexNew == pindexFork) // blocks were disconnected without any new ones
-        return;
-
+    if (pindexNew == pindexFork) return;
     masternodeSync.UpdatedBlockTip(pindexNew, fInitialDownload, connman);
-
-    if (fInitialDownload)
-        return;
-
+    if (fInitialDownload) return;
     mnodeman.UpdatedBlockTip(pindexNew);
-    instantsend.UpdatedBlockTip(pindexNew);
     mnpayments.UpdatedBlockTip(pindexNew, connman);
-    governance.UpdatedBlockTip(pindexNew, connman);
 }
 
 void CDSNotificationInterface::TransactionAddedToMempool(const CTransactionRef &ptxn)
 {
-    instantsend.SyncTransaction(ptxn, nullptr);
 }
 
 void CDSNotificationInterface::BlockConnected(const std::shared_ptr<const CBlock> &block, const CBlockIndex *pindex, const std::vector<CTransactionRef> &txnConflicted)
 {
-    for(const auto &tx : block->vtx)
-    {
-        instantsend.SyncTransaction(tx, pindex);
-    }
-
-    for(const auto &tx : txnConflicted)
-    {
-        instantsend.SyncTransaction(tx, nullptr);
-    }
 }
 
 void CDSNotificationInterface::BlockDisconnected(const std::shared_ptr<const CBlock> &block)
 {
-    for(const auto &tx : block->vtx)
-    {
-        instantsend.SyncTransaction(tx, nullptr);
-    }
 }

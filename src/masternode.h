@@ -164,9 +164,6 @@ public:
     bool fAllowMixingTx{};
     bool fUnitTest = false;
 
-    // KEEP TRACK OF GOVERNANCE ITEMS EACH MASTERNODE HAS VOTE UPON FOR RECALCULATION
-    std::map<uint256, int> mapGovernanceObjectsVotedOn;
-
     CMasternode();
     CMasternode(const CMasternode& other);
     CMasternode(const CMasternodeBroadcast& mnb);
@@ -196,7 +193,6 @@ public:
         READWRITE(nPoSeBanHeight);
         READWRITE(fAllowMixingTx);
         READWRITE(fUnitTest);
-        READWRITE(mapGovernanceObjectsVotedOn);
     }
 
     // CALCULATE A RANK AGAINST OF GIVEN BLOCK
@@ -261,13 +257,6 @@ public:
     int GetLastPaidBlock() const { return nBlockLastPaid; }
     void UpdateLastPaid(const CBlockIndex *pindex, int nMaxBlocksToScanBack);
 
-    // KEEP TRACK OF EACH GOVERNANCE ITEM INCASE THIS NODE GOES OFFLINE, SO WE CAN RECALC THEIR STATUS
-    void AddGovernanceVote(uint256 nGovernanceObjectHash);
-    // RECALCULATE CACHED STATUS FLAGS FOR ALL AFFECTED OBJECTS
-    void FlagGovernanceItemsAsDirty();
-
-    void RemoveGovernanceObject(uint256 nGovernanceObjectHash);
-
     void UpdateWatchdogVoteTime(uint64_t nVoteTime = 0);
 
     CMasternode& operator=(CMasternode const& from)
@@ -281,7 +270,6 @@ public:
         nPoSeBanHeight = from.nPoSeBanHeight;
         fAllowMixingTx = from.fAllowMixingTx;
         fUnitTest = from.fUnitTest;
-        mapGovernanceObjectsVotedOn = from.mapGovernanceObjectsVotedOn;
         return *this;
     }
 };

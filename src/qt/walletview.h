@@ -8,7 +8,6 @@
 
 #include <amount.h>
 #include <qt/masternodelist.h>
-#include <governancelist.h>
 
 #include <QStackedWidget>
 
@@ -69,7 +68,6 @@ private:
     AddressBookPage *usedSendingAddressesPage;
     AddressBookPage *usedReceivingAddressesPage;
     MasternodeList *masternodeListPage;
-    GovernanceList *governanceListPage;
 
     TransactionView *transactionView;
 
@@ -83,8 +81,6 @@ public Q_SLOTS:
     void gotoHistoryPage();
     /** Switch to masternode page */
     void gotoMasternodePage();
-    /** Switch to governance page */
-    void gotoGovernancePage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */

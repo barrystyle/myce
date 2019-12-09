@@ -54,12 +54,10 @@
 #include <messagesigner.h>
 #include <masternodeconfig.h>
 #include <activemasternode.h>
-#include <instantx.h>
 #include <wallet/wallet.h>
 #include <masternodeman.h>
 #include <masternode-payments.h>
 #include <netfulfilledman.h>
-#include <governance/governance.h>
 #include <flat-database.h>
 
 #ifndef WIN32
@@ -72,6 +70,7 @@
 #include <boost/bind.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <boost/thread.hpp>
+#include <boost/lexical_cast.hpp>
 #include <openssl/crypto.h>
 
 #if ENABLE_ZMQ
@@ -225,16 +224,8 @@ static bool LoadExtensionsDataCaches()
         if(!flatdb2.Load(mnpayments)) {
            return InitError(_("Failed to load masternode payments cache from") + "\n" + (pathDB / strDBName).string());
         }
-
-        strDBName = "governance.dat";
-        uiInterface.InitMessage(_("Loading governance cache..."));
-        CFlatDB<CGovernanceManager> flatdb3(strDBName, "magicGovernanceCache");
-        if(!flatdb3.Load(governance)) {
-           return InitError(_("Failed to load governance cache from") + "\n" + (pathDB / strDBName).string());
-        }
-        governance.InitOnLoad();
     } else {
-        uiInterface.InitMessage(_("Masternode cache is empty, skipping payments and governance cache..."));
+        uiInterface.InitMessage(_("Masternode cache is empty, skipping payments..."));
     }
 
     strDBName = "netfulfilled.dat";
@@ -253,8 +244,6 @@ static void StoreExtensionsDataCaches()
     flatdb1.Dump(mnodeman);
     CFlatDB<CMasternodePayments> flatdb2("mnpayments.dat", "magicMasternodePaymentsCache");
     flatdb2.Dump(mnpayments);
-    CFlatDB<CGovernanceManager> flatdb3("governance.dat", "magicGovernanceCache");
-    flatdb3.Dump(governance);
     CFlatDB<CNetFulfilledRequestManager> flatdb4("netfulfilled.dat", "magicFulfilledCache");
     flatdb4.Dump(netfulfilledman);
 }
@@ -1373,18 +1362,13 @@ bool AppInitPrivateSend()
 #endif // ENABLE_WALLET
 #endif
 
-    fEnableInstantSend = gArgs.GetBoolArg("-enableinstantsend", 1);
-    nInstantSendDepth = gArgs.GetArg("-instantsenddepth", DEFAULT_INSTANTSEND_DEPTH);
-    nInstantSendDepth = std::min(std::max(nInstantSendDepth, 0), 60);
-
-    //lite mode disables all Masternode and Darksend related functionality
+    //lite mode disables Masternode functionality
     fLiteMode = gArgs.GetBoolArg("-litemode", false);
     if(fMasterNode && fLiteMode){
         return InitError("You can not start a masternode in litemode");
     }
 
     LogPrintf("fLiteMode %d\n", fLiteMode);
-    LogPrintf("nInstantSendDepth %d\n", nInstantSendDepth);
 #if 0
 #ifdef ENABLE_WALLET
     LogPrintf("PrivateSend rounds %d\n", privateSendClient.nPrivateSendRounds);

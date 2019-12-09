@@ -3,7 +3,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <activemasternode.h>
-#include <governance/governance-classes.h>
 #include <masternode-payments.h>
 #include <masternode-sync.h>
 #include <masternodeman.h>
@@ -86,63 +85,8 @@ bool IsBlockValueValid(const CBlock& block, int nBlockHeight, CAmount expectedRe
         return isBlockRewardValueMet;
     }
 
-    // superblocks started
-
-    CAmount nSuperblockMaxValue =  expectedReward + CSuperblock::GetPaymentsLimit(nBlockHeight);
-    bool isSuperblockMaxValueMet = (actualReward <= nSuperblockMaxValue);
-
-    LogPrint(BCLog::GOBJECT, "actualReward %lld <= nSuperblockMaxValue %lld\n", actualReward, nSuperblockMaxValue);
-
-    if(!masternodeSync.IsSynced()) {
-        // not enough data but at least it must NOT exceed superblock max value
-        if(CSuperblock::IsValidBlockHeight(nBlockHeight)) {
-            LogPrint(BCLog::MNPAYMENTS, "IsBlockPayeeValid -- WARNING: Client not synced, checking superblock max bounds only\n");
-            if(!isSuperblockMaxValueMet) {
-                strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded superblock max value",
-                                        nBlockHeight, actualReward, nSuperblockMaxValue);
-            }
-            return isSuperblockMaxValueMet;
-        }
-        if(!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, only regular blocks are allowed at this height",
-                                    nBlockHeight, actualReward, expectedReward);
-        }
-        // it MUST be a regular block otherwise
-        return isBlockRewardValueMet;
-    }
-
-    // we are synced, let's try to check as much data as we can
-
-    if(sporkManager.IsSporkActive(Spork::SPORK_9_SUPERBLOCKS_ENABLED)) {
-        if(CSuperblockManager::IsSuperblockTriggered(nBlockHeight)) {
-            if(CSuperblockManager::IsValid(coinbaseTransaction, nBlockHeight, expectedReward, actualReward)) {
-                LogPrint(BCLog::GOBJECT, "IsBlockValueValid -- Valid superblock at height %d: %s", nBlockHeight, coinbaseTransaction->ToString());
-                // all checks are done in CSuperblock::IsValid, nothing to do here
-                return true;
-            }
-
-            // triggered but invalid? that's weird
-            LogPrintf("IsBlockValueValid -- ERROR: Invalid superblock detected at height %d: %s", nBlockHeight, coinbaseTransaction->ToString());
-            // should NOT allow invalid superblocks, when superblocks are enabled
-            strErrorRet = strprintf("invalid superblock detected at height %d", nBlockHeight);
-            return false;
-        }
-        LogPrint(BCLog::GOBJECT, "IsBlockValueValid -- No triggered superblock detected at height %d\n", nBlockHeight);
-        if(!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, no triggered superblock detected",
-                                    nBlockHeight, actualReward, expectedReward);
-        }
-    } else {
-        // should NOT allow superblocks at all, when superblocks are disabled
-        LogPrint(BCLog::GOBJECT, "IsBlockValueValid -- Superblocks are disabled, no superblocks allowed\n");
-        if(!isBlockRewardValueMet) {
-            strErrorRet = strprintf("coinbase pays too much at height %d (actual=%d vs limit=%d), exceeded block reward, superblocks are disabled",
-                                    nBlockHeight, actualReward, expectedReward);
-        }
-    }
-
-    // it MUST be a regular block
-    return isBlockRewardValueMet;
+    // just say its wrong
+    return false;
 }
 
 bool IsBlockPayeeValid(const CTransactionRef& txNew, int nBlockHeight, CAmount expectedReward, CAmount actualReward)
@@ -187,26 +131,7 @@ bool IsBlockPayeeValid(const CTransactionRef& txNew, int nBlockHeight, CAmount e
         return true;
     }
 
-    // superblocks started
-    // SEE IF THIS IS A VALID SUPERBLOCK
-
-    if(sporkManager.IsSporkActive(Spork::SPORK_9_SUPERBLOCKS_ENABLED)) {
-        if(CSuperblockManager::IsSuperblockTriggered(nBlockHeight)) {
-            if(CSuperblockManager::IsValid(txNew, nBlockHeight, expectedReward, actualReward)) {
-                LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- Valid superblock at height %d: %s", nBlockHeight, txNew->ToString());
-                return true;
-            }
-
-            LogPrintf("IsBlockPayeeValid -- ERROR: Invalid superblock detected at height %d: %s", nBlockHeight, txNew->ToString());
-            // should NOT allow such superblocks, when superblocks are enabled
-            return false;
-        }
-        // continue validation, should pay MN
-        LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- No triggered superblock detected at height %d\n", nBlockHeight);
-    } else {
-        // should NOT allow superblocks at all, when superblocks are disabled
-        LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- Superblocks are disabled, no superblocks allowed\n");
-    }
+    LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- Superblocks are disabled, no superblocks allowed\n");
 
     // IF THIS ISN'T A SUPERBLOCK OR SUPERBLOCK IS INVALID, IT SHOULD PAY A MASTERNODE DIRECTLY
     if(mnpayments.IsTransactionValid(txNew, nBlockHeight)) {
@@ -225,16 +150,6 @@ bool IsBlockPayeeValid(const CTransactionRef& txNew, int nBlockHeight, CAmount e
 
 void FillBlockPayments(CMutableTransaction& txNew, int nBlockHeight, CAmount blockReward, CTxOut& txoutMasternodeRet, std::vector<CTxOut>& voutSuperblockRet)
 {
-    // only create superblocks if spork is enabled AND if superblock is actually triggered
-    // (height should be validated inside)
-    if(sporkManager.IsSporkActive(Spork::SPORK_9_SUPERBLOCKS_ENABLED) &&
-        CSuperblockManager::IsSuperblockTriggered(nBlockHeight)) {
-            LogPrint(BCLog::MNPAYMENTS, "FillBlockPayments -- triggered superblock creation at height %d\n", nBlockHeight);
-            CSuperblockManager::CreateSuperblock(txNew, nBlockHeight, voutSuperblockRet);
-            return;
-    }
-
-    // FILL BLOCK PAYEE WITH MASTERNODE PAYMENT OTHERWISE
     mnpayments.FillBlockPayee(txNew, nBlockHeight, blockReward, txoutMasternodeRet);
     LogPrint(BCLog::MNPAYMENTS, "FillBlockPayments -- nBlockHeight %d blockReward %lld txoutMasternodeRet %s txNew %s",
                             nBlockHeight, blockReward, txoutMasternodeRet.ToString(), txNew.ToString());
@@ -242,11 +157,6 @@ void FillBlockPayments(CMutableTransaction& txNew, int nBlockHeight, CAmount blo
 
 std::string GetRequiredPaymentsString(int nBlockHeight)
 {
-    // IF WE HAVE A ACTIVATED TRIGGER FOR THIS HEIGHT - IT IS A SUPERBLOCK, GET THE REQUIRED PAYEES
-    if(CSuperblockManager::IsSuperblockTriggered(nBlockHeight)) {
-        return CSuperblockManager::GetRequiredPaymentsString(nBlockHeight);
-    }
-
     // OTHERWISE, PAY MASTERNODE
     return mnpayments.GetRequiredPaymentsString(nBlockHeight);
 }

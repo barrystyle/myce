@@ -35,9 +35,7 @@
 #include <masternodeman.h>
 #include <masternode-sync.h>
 #include <masternode-payments.h>
-#include <governance/governance.h>
 #include <activemasternode.h>
-#include <instantx.h>
 #include <init.h>
 #include <boost/thread.hpp>
 
@@ -3871,20 +3869,6 @@ static const MapSporkHandlers &GetMapGetDataHandlers()
                         }
                         return {};
                     });
-        ADD_HANDLER(MSG_TXLOCK_REQUEST, {
-                        CTxLockRequestRef txLockRequest;
-                        if(instantsend.GetTxLockRequest(hash, txLockRequest)) {
-                            return msgMaker.Make(NetMsgType::TXLOCKREQUEST, *txLockRequest);
-                        }
-                        return {};
-                    });
-        ADD_HANDLER(MSG_TXLOCK_VOTE, {
-                        CTxLockVote vote;
-                        if(instantsend.GetTxLockVote(hash, vote)) {
-                            return msgMaker.Make(NetMsgType::TXLOCKVOTE, vote);
-                        }
-                        return {};
-                    });
         ADD_HANDLER(MSG_MASTERNODE_PAYMENT_BLOCK, {
                         BlockMap::iterator mi = mapBlockIndex.find(hash);
                         LOCK(cs_mapMasternodeBlocks);
@@ -3915,25 +3899,6 @@ static const MapSporkHandlers &GetMapGetDataHandlers()
         ADD_HANDLER(MSG_MASTERNODE_PING, {
                         if(mnodeman.mapSeenMasternodePing.count(hash)) {
                             return msgMaker.Make(NetMsgType::MNPING, mnodeman.mapSeenMasternodePing[hash]);
-                        }
-                        return {};
-                    });
-        ADD_HANDLER(MSG_GOVERNANCE_OBJECT, {
-                        if(governance.HaveObjectForHash(hash)) {
-                            CGovernanceObject obj;
-                            if(governance.SerializeObjectForHash(hash, obj)) {
-                                return msgMaker.Make(NetMsgType::MNGOVERNANCEOBJECT, obj);
-                            }
-                        }
-                        return {};
-                    });
-        ADD_HANDLER(MSG_GOVERNANCE_OBJECT_VOTE, {
-                        if(governance.HaveVoteForHash(hash)) {
-                            CGovernanceVote vote;
-                            if(governance.SerializeVoteForHash(hash, vote)) {
-                                return msgMaker.Make(NetMsgType::MNGOVERNANCEOBJECTVOTE, vote);
-
-                            }
                         }
                         return {};
                     });
@@ -3969,10 +3934,8 @@ void net_processing_bitcoin::ProcessExtension(CNode *pfrom, const std::string &s
 {
     mnodeman.ProcessMessage(pfrom, strCommand, vRecv, *connman);
     mnpayments.ProcessMessage(pfrom, strCommand, vRecv, *connman);
-    instantsend.ProcessMessage(pfrom, strCommand, vRecv, *connman);
     sporkManager.ProcessSpork(pfrom, strCommand, vRecv, connman);
     masternodeSync.ProcessMessage(pfrom, strCommand, vRecv);
-    governance.ProcessMessage(pfrom, strCommand, vRecv, *connman);
 }
 
 void net_processing_bitcoin::ThreadProcessExtensions(CConnman *pConnman)
@@ -4014,14 +3977,9 @@ void net_processing_bitcoin::ThreadProcessExtensions(CConnman *pConnman)
                     mnodeman.ProcessMasternodeConnections(connman);
                     mnodeman.CheckAndRemove(connman);
                     mnpayments.CheckAndRemove();
-                    instantsend.CheckAndRemove();
                 }
                 if(fMasterNode && (nTick % (60 * 5) == 0)) {
                     mnodeman.DoFullVerificationStep(connman);
-                }
-
-                if(nTick % (60 * 5) == 0) {
-                    governance.DoMaintenance(connman);
                 }
             }
 
@@ -4042,12 +4000,6 @@ bool net_processing_bitcoin::AlreadyHave(const CInv &inv)
     We're going to be asking many nodes upfront for the full inventory list, so we'll get duplicates of these.
     We want to only update the time on new hits, so that we can time out appropriately if needed.
     */
-    case MSG_TXLOCK_REQUEST:
-        return instantsend.AlreadyHave(inv.hash);
-
-    case MSG_TXLOCK_VOTE:
-        return instantsend.AlreadyHave(inv.hash);
-
     case MSG_SPORK:
         return mapSporks.count(inv.hash);
 
@@ -4065,14 +4017,6 @@ bool net_processing_bitcoin::AlreadyHave(const CInv &inv)
 
     case MSG_MASTERNODE_PING:
         return mnodeman.mapSeenMasternodePing.count(inv.hash);
-
-    case MSG_DSTX: {
-        //        return static_cast<bool>(CPrivateSend::GetDSTX(inv.hash));
-        return true;
-    }
-    case MSG_GOVERNANCE_OBJECT:
-    case MSG_GOVERNANCE_OBJECT_VOTE:
-        return !governance.ConfirmInventoryRequest(inv);
 
     case MSG_MASTERNODE_VERIFY:
         return mnodeman.mapSeenMasternodeVerification.count(inv.hash);
