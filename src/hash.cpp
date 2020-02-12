@@ -4,6 +4,7 @@
 
 #include <hash.h>
 #include <crypto/common.h>
+#include <crypto/scrypt.h>
 #include <crypto/hmac_sha512.h>
 
 

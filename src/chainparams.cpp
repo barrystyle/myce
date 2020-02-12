@@ -6,51 +6,46 @@
 #include <chainparams.h>
 #include <consensus/merkle.h>
 
+#include <streams.h>
 #include <tinyformat.h>
 #include <utilstrencodings.h>
 #include <arith_uint256.h>
+#include <util.h>
 
 #include <assert.h>
 
 #include <chainparamsseeds.h>
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+CBlock MyceLegacyBlock()
 {
+    CBlock block;
+    CDataStream stream(ParseHex("01000000000000000000000000000000000000000000000000000000000000000000000090eafddb7b64457b5b30f51a6b4f07912281b3b5fa5ebf5dc4149efe6380a58e5885965affff001f4232030001010000005db8535a010000000000000000000000000000000000000000000000000000000000000000ffffffff1400012a104d796365206d61737465726e6f646573ffffffff0100000000000000000000000000"), SER_NETWORK, 70914);
+    stream >> block;
+    return block;
+}
+
+static CBlock CreateGenesisBlock(uint32_t nTimeTx, unsigned int nTimeBlock, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+{
+    const char* pszTimestamp = "Myce masternodes";
+
     CMutableTransaction txNew;
     txNew.nVersion = 1;
+    txNew.nTime = nTimeTx;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
-    txNew.vout[0].nValue = genesisReward;
-    txNew.vout[0].scriptPubKey = genesisOutputScript;
+    txNew.vin[0].scriptSig = CScript() << 0 << CScriptNum(42) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vout[0].SetEmpty();
 
     CBlock genesis;
-    genesis.nTime    = nTime;
+    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
+    genesis.nTime    = nTimeBlock;
     genesis.nBits    = nBits;
     genesis.nNonce   = nNonce;
     genesis.nVersion = nVersion;
-    genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    return genesis;
-}
 
-/**
- * Build the genesis block. Note that the output of its generation
- * transaction cannot be spent since it did not originally exist in the
- * database.
- *
- * CBlock(hash=000000000019d6, ver=1, hashPrevBlock=00000000000000, hashMerkleRoot=4a5e1e, nTime=1231006505, nBits=1d00ffff, nNonce=2083236893, vtx=1)
- *   CTransaction(hash=4a5e1e, ver=1, vin.size=1, vout.size=1, nLockTime=0)
- *     CTxIn(COutPoint(000000, -1), coinbase 04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73)
- *     CTxOut(nValue=50.00000000, scriptPubKey=0x5F1DF16B2B704C8A578D0B)
- *   vMerkleTree: 4a5e1e
- */
-static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
-{
-    const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
-    const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+    return genesis;
 }
 
 void CChainParams::UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
@@ -129,35 +124,22 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xc4;
-        pchMessageStart[1] = 0x4d;
-        pchMessageStart[2] = 0xe4;
-        pchMessageStart[3] = 0x4f;
-        nDefaultPort = 20000;
+        pchMessageStart[0] = 0xfa;
+        pchMessageStart[1] = 0x23;
+        pchMessageStart[2] = 0x43;
+        pchMessageStart[3] = 0x65;
+        nDefaultPort = 23511;
         nPruneAfterHeight = 100000;
         nMaxReorganizationDepth = 100;
 
-	////////////////////////////////////////////////////////////////////////////////
-	uint32_t nTime = 1556915433;
-	uint32_t nNonce = 34897;
-
-        if (nNonce == 0) {
-	  while (UintToArith256(genesis.GetPoWHash()) > UintToArith256(consensus.powLimit)) {
-	    nNonce++;
-	    genesis = CreateGenesisBlock(nTime, nNonce, 0x1f00ffff, 1, 0 * COIN);
-	    if (nNonce % 128 == 0)
-	      printf("\rnonce %08x", nNonce);
-	  }
-        }
-	////////////////////////////////////////////////////////////////////////////////
-
-        genesis = CreateGenesisBlock(nTime, nNonce, 0x1f00ffff, 1, 0 * COIN);
+        genesis = MyceLegacyBlock();
         consensus.hashGenesisBlock = genesis.GetHash();
-        // assert(consensus.hashGenesisBlock == uint256S(""));
 
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1,70);
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1,132);
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1,198);
+	LogPrintf("%s\n", consensus.hashGenesisBlock.ToString().c_str());
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 50);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 85);
+        base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1, 153);
         base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x88, 0xB2, 0x1E};
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x88, 0xAD, 0xE4};
         bech32_hrp = "vx";
@@ -174,15 +156,9 @@ public:
         strSporkPubKey = "";
 
         checkpointData = {
-            {
-                { 0, uint256S("") },
-            }
         };
 
         chainTxData = ChainTxData{
-            0,
-            1,
-            1.0
         };
 
         /* disable fallback fee on mainnet */

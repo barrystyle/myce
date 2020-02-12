@@ -278,6 +278,7 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 // Construct block index object
                 CBlockIndex* pindexNew      = insertBlockIndex(diskindex.GetBlockHash());
                 pindexNew->pprev            = insertBlockIndex(diskindex.hashPrev);
+                pindexNew->pnext            = insertBlockIndex(diskindex.hashNext);
                 pindexNew->nHeight          = diskindex.nHeight;
                 pindexNew->nFile            = diskindex.nFile;
                 pindexNew->nDataPos         = diskindex.nDataPos;
@@ -290,13 +291,18 @@ bool CBlockTreeDB::LoadBlockIndexGuts(const Consensus::Params& consensusParams, 
                 pindexNew->nStatus          = diskindex.nStatus;
                 pindexNew->nTx              = diskindex.nTx;
 
+                //zerocoin
+                pindexNew->nAccumulatorCheckpoint = diskindex.nAccumulatorCheckpoint;
+                // pindexNew->mapZerocoinSupply = diskindex.mapZerocoinSupply;
+                // pindexNew->vMintDenominationsInBlock = diskindex.vMintDenominationsInBlock;
+
                 //Proof Of Stake
-                pindexNew->nMint            = diskindex.nMint;
-                pindexNew->nMoneySupply     = diskindex.nMoneySupply;
-                pindexNew->nFlags           = diskindex.nFlags;
-                pindexNew->nStakeModifier   = diskindex.nStakeModifier;
-                pindexNew->prevoutStake     = diskindex.prevoutStake;
-                pindexNew->nStakeTime       = diskindex.nStakeTime;
+                pindexNew->nMint = diskindex.nMint;
+                pindexNew->nMoneySupply = diskindex.nMoneySupply;
+                pindexNew->nFlags = diskindex.nFlags;
+                pindexNew->nStakeModifier = diskindex.nStakeModifier;
+                pindexNew->prevoutStake = diskindex.prevoutStake;
+                pindexNew->nStakeTime = diskindex.nStakeTime;
                 pindexNew->hashProofOfStake = diskindex.hashProofOfStake;
 
                 // Echostake: Disable PoW Sanity check while loading block index from disk.

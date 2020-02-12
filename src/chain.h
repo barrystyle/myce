@@ -177,6 +177,9 @@ public:
     CBlockIndex* pprev;
 
     //! pointer to the index of some further predecessor of this block
+    CBlockIndex* pnext;
+
+    //! pointer to the index of some further predecessor of this block
     CBlockIndex* pskip;
 
     //ppcoin: trust score of block chain
@@ -227,11 +230,12 @@ public:
     int64_t nMoneySupply;
 
     //! block header
-    int32_t nVersion;
+    int nVersion;
     uint256 hashMerkleRoot;
-    uint32_t nTime;
-    uint32_t nBits;
-    uint32_t nNonce;
+    unsigned int nTime;
+    unsigned int nBits;
+    unsigned int nNonce;
+    uint256 nAccumulatorCheckpoint;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -268,6 +272,7 @@ public:
         nTime          = 0;
         nBits          = 0;
         nNonce         = 0;
+        nAccumulatorCheckpoint = uint256();
     }
 
     CBlockIndex()
@@ -284,6 +289,8 @@ public:
         nTime          = block.nTime;
         nBits          = block.nBits;
         nNonce         = block.nNonce;
+        if (block.nVersion > 10)
+            nAccumulatorCheckpoint = block.nAccumulatorCheckpoint;
 
         //Proof of Stake
         bnChainTrust = uint256();
@@ -332,17 +339,13 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.nAccumulatorCheckpoint = nAccumulatorCheckpoint;
         return block;
     }
 
     uint256 GetBlockHash() const
     {
         return *phashBlock;
-    }
-
-    uint256 GetBlockPoWHash() const
-    {
-        return GetBlockHeader().GetPoWHash();
     }
 
     int64_t GetBlockTime() const
@@ -453,16 +456,15 @@ const CBlockIndex* LastCommonAncestor(const CBlockIndex* pa, const CBlockIndex* 
 class CDiskBlockIndex : public CBlockIndex
 {
 public:
-    uint256 hash;
     uint256 hashPrev;
+    uint256 hashNext;
 
     CDiskBlockIndex() {
-        hash = uint256();
         hashPrev = uint256();
+        hashNext = uint256();
     }
 
     explicit CDiskBlockIndex(const CBlockIndex* pindex) : CBlockIndex(*pindex) {
-        hash = (hash == uint256() ? pindex->GetBlockHash() : hash);
         hashPrev = (pprev ? pprev->GetBlockHash() : uint256());
     }
 
@@ -491,22 +493,23 @@ public:
         if (IsProofOfStake()) {
             READWRITE(prevoutStake);
             READWRITE(nStakeTime);
-            READWRITE(hashProofOfStake);
         } else {
             const_cast<CDiskBlockIndex*>(this)->prevoutStake.SetNull();
             const_cast<CDiskBlockIndex*>(this)->nStakeTime = 0;
             const_cast<CDiskBlockIndex*>(this)->hashProofOfStake = uint256();
         }
 
-        // block hash
-        READWRITE(hash);
         // block header
         READWRITE(this->nVersion);
         READWRITE(hashPrev);
+        READWRITE(hashNext);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+        if (this->nVersion > 10) {
+            READWRITE(nAccumulatorCheckpoint);
+        }
     }
 
     uint256 GetBlockHash() const
@@ -518,6 +521,7 @@ public:
         block.nTime           = nTime;
         block.nBits           = nBits;
         block.nNonce          = nNonce;
+        block.nAccumulatorCheckpoint = nAccumulatorCheckpoint;
         return block.GetHash();
     }
 

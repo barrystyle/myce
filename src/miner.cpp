@@ -650,7 +650,7 @@ void static BitcoinMiner(const CChainParams& chainparams, CConnman& connman, CWa
                 uint256 hash;
                 while (true)
                 {
-                    hash = pblock->GetPoWHash();
+                    hash = pblock->GetHash();
                     if (UintToArith256(hash) <= hashTarget)
                     {
                         // Found a solution

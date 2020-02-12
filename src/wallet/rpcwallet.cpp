@@ -111,18 +111,6 @@ static void WalletTxToJSON(const CWalletTx& wtx, UniValue& entry)
     entry.pushKV("time", wtx.GetTxTime());
     entry.pushKV("timereceived", (int64_t)wtx.nTimeReceived);
 
-    // Add opt-in RBF status
-    std::string rbfStatus = "no";
-    if (confirms <= 0) {
-        LOCK(mempool.cs);
-        RBFTransactionState rbfState = IsRBFOptIn(*wtx.tx, mempool);
-        if (rbfState == RBFTransactionState::UNKNOWN)
-            rbfStatus = "unknown";
-        else if (rbfState == RBFTransactionState::REPLACEABLE_BIP125)
-            rbfStatus = "yes";
-    }
-    entry.pushKV("bip125-replaceable", rbfStatus);
-
     for (const std::pair<std::string, std::string>& item : wtx.mapValue)
         entry.pushKV(item.first, item.second);
 }

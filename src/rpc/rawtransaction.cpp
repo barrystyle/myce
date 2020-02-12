@@ -480,11 +480,7 @@ static UniValue createrawtransaction(const JSONRPCRequest& request)
         }
     }
 
-    if (!request.params[3].isNull() && rbfOptIn != SignalsOptInRBF(rawTx)) {
-        throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid parameter combination: Sequence number(s) contradict replaceable option");
-    }
-
-    return EncodeHexTx(rawTx);
+    return EncodeHexTx(CTransaction(rawTx));
 }
 
 static UniValue decoderawtransaction(const JSONRPCRequest& request)
@@ -745,7 +741,7 @@ static UniValue combinerawtransaction(const JSONRPCRequest& request)
         UpdateTransaction(mergedTx, i, sigdata);
     }
 
-    return EncodeHexTx(mergedTx);
+    return EncodeHexTx(CTransaction(mergedTx));
 }
 
 UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival, CBasicKeyStore *keystore, bool is_temp_keystore, const UniValue& hashType)
@@ -891,7 +887,7 @@ UniValue SignTransaction(CMutableTransaction& mtx, const UniValue& prevTxsUnival
     bool fComplete = vErrors.empty();
 
     UniValue result(UniValue::VOBJ);
-    result.pushKV("hex", EncodeHexTx(mtx));
+    result.pushKV("hex", EncodeHexTx(CTransaction(mtx)));
     result.pushKV("complete", fComplete);
     if (!vErrors.empty()) {
         result.pushKV("errors", vErrors);

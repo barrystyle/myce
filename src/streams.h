@@ -547,7 +547,7 @@ public:
     }
 
     template<typename T>
-    CAutoFile& operator>>(T&& obj)
+    CAutoFile& operator>>(T& obj)
     {
         // Unserialize from this stream
         if (!file)

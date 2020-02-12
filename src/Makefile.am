@@ -378,6 +378,11 @@ libbitcoin_consensus_a_SOURCES = \
   hash.cpp \
   hash.h \
   prevector.h \
+  timedatadummy.cpp \
+  primitives/specialscrypt.cpp \
+  primitives/specialscrypt.h \
+  primitives/pbkdf2.cpp \
+  primitives/pbkdf2.h \
   primitives/block.cpp \
   primitives/block.h \
   primitives/transaction.cpp \

@@ -21,12 +21,14 @@ class CBlockHeader
 {
 public:
     // header
+    static const int32_t CURRENT_VERSION=9;
     int32_t nVersion;
     uint256 hashPrevBlock;
     uint256 hashMerkleRoot;
     uint32_t nTime;
     uint32_t nBits;
     uint32_t nNonce;
+    uint256 nAccumulatorCheckpoint;
 
     CBlockHeader()
     {
@@ -38,21 +40,27 @@ public:
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
         READWRITE(this->nVersion);
+        nVersion = this->nVersion;
         READWRITE(hashPrevBlock);
         READWRITE(hashMerkleRoot);
         READWRITE(nTime);
         READWRITE(nBits);
         READWRITE(nNonce);
+
+        //zerocoin active, header changes to include accumulator checksum
+        if (nVersion > 10)
+            READWRITE(nAccumulatorCheckpoint);
     }
 
     void SetNull()
     {
-        nVersion = 0;
+        nVersion = CBlockHeader::CURRENT_VERSION;
         hashPrevBlock.SetNull();
         hashMerkleRoot.SetNull();
         nTime = 0;
         nBits = 0;
         nNonce = 0;
+        nAccumulatorCheckpoint.SetNull();
     }
 
     bool IsNull() const
@@ -61,8 +69,6 @@ public:
     }
 
     uint256 GetHash() const;
-
-    uint256 GetPoWHash() const;
 
     int64_t GetBlockTime() const
     {
@@ -79,6 +85,7 @@ public:
     std::vector<unsigned char> vchBlockSig;
 
     // memory only
+    mutable std::vector<uint256> vMerkleTree;
     mutable CTxOut txoutMasternode;
     mutable std::vector<CTxOut> voutSuperblock;
     mutable bool fChecked;
@@ -91,14 +98,14 @@ public:
     CBlock(const CBlockHeader &header)
     {
         SetNull();
-        *(static_cast<CBlockHeader*>(this)) = header;
+        *((CBlockHeader*)this) = header;
     }
 
     ADD_SERIALIZE_METHODS;
 
     template <typename Stream, typename Operation>
     inline void SerializationOp(Stream& s, Operation ser_action) {
-        READWRITEAS(CBlockHeader, *this);
+        READWRITE(*(CBlockHeader*)this);
         READWRITE(vtx);
         if(vtx.size() > 1 && vtx[1]->IsCoinStake())
         {
@@ -110,8 +117,8 @@ public:
     {
         CBlockHeader::SetNull();
         vtx.clear();
-        fChecked = false;
-		vchBlockSig.clear();
+        vchBlockSig.clear();
+        vMerkleTree.clear();
     }
 
     CBlockHeader GetBlockHeader() const
@@ -123,12 +130,21 @@ public:
         block.nTime          = nTime;
         block.nBits          = nBits;
         block.nNonce         = nNonce;
+        block.nAccumulatorCheckpoint = nAccumulatorCheckpoint;
         return block;
     }
+
+    // Build the in-memory merkle tree for this block and return the merkle root.
+    // If non-NULL, *mutated is set to whether mutation was detected in the merkle
+    // tree (a duplication of transactions in the block leading to an identical
+    // merkle root).
+    uint256 BuildMerkleTree(bool* mutated = NULL) const;
 
     bool IsProofOfStake() const;
     bool IsProofOfWork() const;
 
+    std::vector<uint256> GetMerkleBranch(int nIndex) const;
+    static uint256 CheckMerkleBranch(uint256 hash, const std::vector<uint256>& vMerkleBranch, int nIndex);
     std::string ToString() const;
 };
 

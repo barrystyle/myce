@@ -13,6 +13,9 @@
 #include <uint256.h>
 #include <version.h>
 
+#include <iomanip>
+#include <openssl/sha.h>
+#include <sstream>
 #include <vector>
 
 typedef uint256 ChainCode;
@@ -216,6 +219,11 @@ public:
     uint64_t Finalize() const;
 };
 
+uint256 scrypt_salted_multiround_hash(const void* input, size_t inputlen, const void* salt, size_t saltlen, const unsigned int nRounds);
+uint256 scrypt_salted_hash(const void* input, size_t inputlen, const void* salt, size_t saltlen);
+uint256 scrypt_hash(const void* input, size_t inputlen);
+uint256 scrypt_blockhash(const void* input);
+
 /** Optimized SipHash-2-4 implementation for uint256.
  *
  *  It is identical to:
@@ -228,5 +236,15 @@ public:
  */
 uint64_t SipHashUint256(uint64_t k0, uint64_t k1, const uint256& val);
 uint64_t SipHashUint256Extra(uint64_t k0, uint64_t k1, const uint256& val, uint32_t extra);
+
+/* ----------- Scrypt Hash ------------------------------------------------ */
+template <typename T1>
+inline uint256 HashScrypt(const T1 pbegin, const T1 pend)
+{
+    static unsigned char pblank[1];
+    return scrypt_hash((pbegin == pend ? pblank : static_cast<const void*>(&pbegin[0])), (pend - pbegin) * sizeof(pbegin[0])); 
+}
+
+void scrypt_hash(const char* pass, unsigned int pLen, const char* salt, unsigned int sLen, char* output, unsigned int N, unsigned int r, unsigned int p, unsigned int dkLen);
 
 #endif // BITCOIN_HASH_H
