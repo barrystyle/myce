@@ -1142,14 +1142,82 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
 
 CAmount GetBlockSubsidy(int nPrevHeight, const Consensus::Params& consensusParams, bool fSuperblockPartOnly)
 {
-    CAmount nSubsidy = 1000 * COIN;
-
+    int64_t nSubsidy = 0;
+    int nHeight = nPrevHeight;
+#if 0
+    if (fProofOfStake)
+    {
+        nHeight--; // Legacy wallet calculated PoS reward with height-1
+        if (nHeight >= 10000 && nHeight <= 50000)
+        {
+            nSubsidy = 25 * COIN;
+        } else if (nHeight <= 100000 && nHeight > 50000)
+        {
+            nSubsidy = 50 * COIN;
+        } else if (nHeight <= 150000 && nHeight > 100000)
+        {
+            nSubsidy = 75 * COIN;
+        } else if (nHeight <= 200000 && nHeight > 150000)
+        {
+            nSubsidy = 100 * COIN;
+        } else if (nHeight <= 250000 && nHeight > 200000)
+        {
+            nSubsidy = 75 * COIN;
+        } else if (nHeight <= 300000 && nHeight > 250000)
+        {
+            nSubsidy = 100 * COIN;
+        } else if (nHeight <= 350000 && nHeight > 300000)
+        {
+            nSubsidy = 75 * COIN;
+        } else if (nHeight <= 400000 && nHeight > 350000)
+        {
+            nSubsidy = 50 * COIN;
+        } else if (nHeight <= 450000 && nHeight > 400000)
+        {
+            nSubsidy = 25 * COIN;
+        } else if (nHeight <= 500000 && nHeight > 450000)
+        {
+            nSubsidy = 20 * COIN;
+        } else
+        {
+            nSubsidy = 10 * COIN;
+        }
+    }
+    else
+#endif
+    {
+        if (nHeight == 1)
+        {
+            nSubsidy = 250 * COIN;
+        } else if (nHeight > 1 && nHeight <= 11)
+        {
+            nSubsidy = 3500000 * COIN;
+        } else if (nHeight > 11 && nHeight <= 20000)
+        {
+            nSubsidy = 50 * COIN;
+        } else if (nHeight > 20000 && nHeight <= 50000)
+        {
+            nSubsidy = 25 * COIN;
+        } else if(nHeight > 50000 && nHeight <= 100000)
+        {
+            nSubsidy = 20 * COIN;
+        } else if(nHeight > 100000 && nHeight <= 200000)
+        {
+            nSubsidy = 10 * COIN;
+        } else {
+            nSubsidy = 10 * COIN;
+        }
+    }
     return nSubsidy;
 }
 
 CAmount GetMasternodePayment(int nHeight, CAmount blockValue)
 {
-    return blockValue * 0.0;
+    int64_t ret = 0;
+
+    ret = blockValue * .80; // Masternode receives 80% of block reward
+
+    return ret;
 }
 
 bool IsInitialBlockDownload()

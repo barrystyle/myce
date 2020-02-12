@@ -22,16 +22,17 @@ enum {
     - This would result in old clients getting confused about which spork is for what
 */
 
-    SPORK_2_INSTANTSEND_ENABLED                            = SPORK_START,
-    SPORK_3_INSTANTSEND_BLOCK_FILTERING                    = 10002,
-    SPORK_5_INSTANTSEND_MAX_VALUE                          = 10004,
-    SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT                 = 10007,
-    SPORK_9_SUPERBLOCKS_ENABLED                            = 10008,
-    SPORK_10_MASTERNODE_PAY_UPDATED_NODES                  = 10009,
-    SPORK_12_RECONSIDER_BLOCKS                             = 10011,
-    SPORK_13_OLD_SUPERBLOCK_FLAG                           = 10012,
-    SPORK_14_REQUIRE_SENTINEL_FLAG                         = 10013,
-    SPORK_15_POS_DISABLED                                  = 10014,
+    SPORK_2_SWIFTTX = SPORK_START,
+    SPORK_3_SWIFTTX_BLOCK_FILTERING = 10002,
+    SPORK_5_MAX_VALUE = 10004,
+    SPORK_7_MASTERNODE_SCANNING = 10006,
+    SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT = 10007,
+    SPORK_9_MASTERNODE_BUDGET_ENFORCEMENT = 10008,
+    SPORK_10_MASTERNODE_PAY_UPDATED_NODES = 10009,
+    SPORK_13_ENABLE_SUPERBLOCKS = 10012,
+    SPORK_14_NEW_PROTOCOL_ENFORCEMENT = 10013,
+    SPORK_15_NEW_PROTOCOL_ENFORCEMENT_2 = 10014,
+    SPORK_16_ZEROCOIN_MAINTENANCE_MODE = 10015,
     SPORK_END
 };
 
@@ -111,7 +112,7 @@ public:
     bool IsSporkActive(int nSporkID);
     int64_t GetSporkValue(int nSporkID);
     int GetSporkIDByName(std::string strName);
-    std::string GetSporkNameByID(int nSporkID);
+    std::string GetSporkNameByID(int id);
 
     bool SetPrivKey(std::string strPrivKey);
 };

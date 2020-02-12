@@ -153,7 +153,8 @@ public:
         nCollateralLevels = { 0 };
         nPoolMaxTransactions = 3;
         nFulfilledRequestExpireTime = 60*60;
-        strSporkPubKey = "";
+        strSporkPubKey = "03f012092c5fe9ed406b43316fc87d8ace9e8eb7764999db00ef60009ddddfa723";
+        strSporkPubKeyOld = "0358d5fb8000c49d38aaab6dc5d0c0a0322eff3090eff026963eb819dc3dec8439";
 
         checkpointData = {
         };

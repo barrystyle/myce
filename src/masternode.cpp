@@ -267,10 +267,6 @@ bool CMasternode::IsValidForPayment() const
     if(nActiveState == MASTERNODE_ENABLED) {
         return true;
     }
-    if(!sporkManager.IsSporkActive(Spork::SPORK_14_REQUIRE_SENTINEL_FLAG) &&
-            (nActiveState == MASTERNODE_WATCHDOG_EXPIRED)) {
-        return true;
-    }
 
     return false;
 }

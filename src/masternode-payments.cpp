@@ -64,7 +64,7 @@ bool IsBlockValueValid(const CBlock& block, int nBlockHeight, CAmount expectedRe
         if(nBlockHeight >= consensusParams.nBudgetPaymentsStartBlock &&
                 nOffset < consensusParams.nBudgetPaymentsWindowBlocks) {
             // NOTE: make sure SPORK_13_OLD_SUPERBLOCK_FLAG is disabled when 12.1 starts to go live
-            if(masternodeSync.IsSynced() && !sporkManager.IsSporkActive(Spork::SPORK_13_OLD_SUPERBLOCK_FLAG)) {
+            if(masternodeSync.IsSynced()) {
                 // no budget blocks should be accepted here, if SPORK_13_OLD_SUPERBLOCK_FLAG is disabled
                 LogPrint(BCLog::GOBJECT, "IsBlockValueValid -- Client synced but budget spork is disabled, checking block value against block reward\n");
                 if(!isBlockRewardValueMet) {
@@ -111,21 +111,21 @@ bool IsBlockPayeeValid(const CTransactionRef& txNew, int nBlockHeight, CAmount e
         int nOffset = nBlockHeight % consensusParams.nBudgetPaymentsCycleBlocks;
         if(nBlockHeight >= consensusParams.nBudgetPaymentsStartBlock &&
                 nOffset < consensusParams.nBudgetPaymentsWindowBlocks) {
-            if(!sporkManager.IsSporkActive(Spork::SPORK_13_OLD_SUPERBLOCK_FLAG)) {
+            /*if(!sporkManager.IsSporkActive(SPORK_13_OLD_SUPERBLOCK_FLAG)) {
                 // no budget blocks should be accepted here, if SPORK_13_OLD_SUPERBLOCK_FLAG is disabled
                 LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- ERROR: Client synced but budget spork is disabled and masternode payment is invalid\n");
                 return false;
-            }
+            }*/
             // NOTE: this should never happen in real, SPORK_13_OLD_SUPERBLOCK_FLAG MUST be disabled when 12.1 starts to go live
             LogPrint(BCLog::GOBJECT, "IsBlockPayeeValid -- WARNING: Probably valid budget block, have no data, accepting\n");
             // TODO: reprocess blocks to make sure they are legit?
             return true;
         }
 
-        if(sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)) {
+        /*if(sporkManager.IsSporkActive(SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)) {
             LogPrintf("IsBlockPayeeValid -- ERROR: Invalid masternode payment detected at height %d: %s", nBlockHeight, txNew->ToString());
             return false;
-        }
+        }*/
 
         LogPrintf("IsBlockPayeeValid -- WARNING: Masternode payment enforcement is disabled, accepting any payee\n");
         return true;
@@ -139,10 +139,10 @@ bool IsBlockPayeeValid(const CTransactionRef& txNew, int nBlockHeight, CAmount e
         return true;
     }
 
-    if(sporkManager.IsSporkActive(Spork::SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)) {
+    /*if(sporkManager.IsSporkActive(SPORK_8_MASTERNODE_PAYMENT_ENFORCEMENT)) {
         LogPrintf("IsBlockPayeeValid -- ERROR: Invalid masternode payment detected at height %d: %s", nBlockHeight, txNew->ToString());
         return false;
-    }
+    }*/
 
     LogPrintf("IsBlockPayeeValid -- WARNING: Masternode payment enforcement is disabled, accepting any payee\n");
     return true;
@@ -220,9 +220,9 @@ void CMasternodePayments::FillBlockPayee(CMutableTransaction& txNew, int nBlockH
 }
 
 int CMasternodePayments::GetMinMasternodePaymentsProto() {
-    return sporkManager.IsSporkActive(Spork::SPORK_10_MASTERNODE_PAY_UPDATED_NODES)
+    return PROTOCOL_VERSION; /*sporkManager.IsSporkActive(SPORK_10_MASTERNODE_PAY_UPDATED_NODES)
             ? MIN_MASTERNODE_PAYMENT_PROTO_VERSION_2
-            : MIN_MASTERNODE_PAYMENT_PROTO_VERSION_1;
+            : MIN_MASTERNODE_PAYMENT_PROTO_VERSION_1;*/
 }
 
 void CMasternodePayments::ProcessMessage(CNode* pfrom, const std::string& strCommand, CDataStream& vRecv, CConnman& connman)
